@@ -1,4 +1,7 @@
 Telemóvel
 Smartphone
 Portátil
+Portáteis
+Computador
+Computadores
 Wireless
