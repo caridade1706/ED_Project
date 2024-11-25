@@ -26,17 +26,20 @@
         </nav>
     </div>
 
-    <!-- Conteúdo Principal -->
+    <!-- Main Content -->
     <div class="container" id="overview">
-
         <h2>Overview</h2>
-
-        {% if count_products %}
-        <p>Number of products: {{ count_products }}</p>
-        {% endif %}
-
-        <!-- {% if count_websites %} -->
-    
+        <div class="overview-grid">
+            {% if count_products %}
+                {% for website, count in count_products.items() %}
+                    <div class="circle-card">
+                        <img src="/static/logos/{{ website | lower }}.png" alt="{{ website }} Logo">
+                        <h3>{{ website }}</h3>
+                        <p>{{ count }} Products</p>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
     </div>
 
     <!-- Footer -->
@@ -50,5 +53,4 @@
 </body>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.js"></script>
-
 </html>

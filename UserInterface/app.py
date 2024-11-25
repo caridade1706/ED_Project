@@ -41,17 +41,39 @@ all_data = pd.concat(dataframes, ignore_index=True)
 
 @app.route("/")
 def index():
-    return render_template("index.html")
-
-@app.route("/price-analysis")
-def price_analysis():
 
     count_products = {}
 
     for website in websites:
-        count_products[website] = len(all_data[all_data['website'] == website])
 
-    return render_template("price_analysis.html", count_products=count_products)
+        website_correct = None
+
+        if website == 'fnac':
+            website_correct = 'Fnac'
+        elif website == 'kuantokusta':
+            website_correct = 'Kuanto Kusta'
+        elif website == 'worten':
+            website_correct = 'Worten'
+        elif website == 'radiopopular':
+            website_correct = 'Radio Popular'
+        elif website == 'pcdiga':
+            website_correct = 'PC Diga'
+        elif website == 'elcorteingles':
+            website_correct = 'El Corte Inglés'
+        elif website == 'mediamarkt':
+            website_correct = 'Media Markt'
+
+        # Remove duplicate products for this website based on product_name
+        unique_products = all_data[all_data['website'] == website].drop_duplicates(subset='title')
+        count_products[website_correct] = len(unique_products)
+
+    print(count_products)
+
+    return render_template("index.html",  count_products=count_products)
+
+@app.route("/price-analysis")
+def price_analysis():
+    return render_template("price_analysis.html")
 
 @app.route("/categories")
 def categories():
