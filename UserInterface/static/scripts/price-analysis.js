@@ -77,7 +77,7 @@ fetch("/api/data")
           labels: timestamps,
           datasets: [
             {
-              label: "Preço ao longo do Tempo",
+              label: "Price Evolution",
               data: prices,
               borderColor: "rgba(75, 192, 192, 1)",
               backgroundColor: "rgba(75, 192, 192, 0.2)",
@@ -102,7 +102,7 @@ fetch("/api/data")
             y: {
               title: {
                 display: true,
-                text: "Preço (€)",
+                text: "Price (€)",
               },
             },
           },

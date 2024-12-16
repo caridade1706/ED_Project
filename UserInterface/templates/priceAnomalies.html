@@ -8,6 +8,89 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
+<style>
+    .container {
+        margin: 50px auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .filterForm {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+    }
+
+    h2 {
+        text-align: center;
+        color: #333;
+    }
+
+    label {
+        font-weight: bold;
+        display: block;
+        margin: 10px 0 5px;
+        color: #555;
+    }
+
+    /* Custom Dropdown Styling */
+    .custom-dropdown {
+        position: relative;
+        width: 100%;
+    }
+
+    select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        background-color: #fff;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 20 20"><path fill="gray" d="M7 7l3-3 3 3H7zm0 6l3 3 3-3H7z"/></svg>');
+        background-repeat: no-repeat;
+        background-position: right 15px center;
+        background-size: 15px;
+        color: #333;
+        cursor: pointer;
+        transition: border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+    }
+
+    select:hover {
+        border-color: #007bff;
+    }
+
+    select:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+    }
+
+    /* Button Styling */
+    .btn {
+        display: inline-block;
+        padding: 10px 15px;
+        font-size: 16px;
+        font-weight: bold;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .btn:hover {
+        background-color: #0056b3;
+    }
+</style>
+
 <body>
     <!-- Navbar -->
     <div class="navbar">
@@ -21,31 +104,47 @@
                 <li><a href="/">Overview</a></li>
                 <li><a href="/price-analysis">Price Analysis</a></li>
                 <li><a href="/categories">Categories</a></li>
+                <li><a href="/productComparisons">Product Compare</a></li>
                 <li><a href="/priceAnomalies">Price Anomalies</a></li>
             </ul>
         </nav>
     </div>
 
     <div class="container">
-        <h2>Select Filters</h2>
-        <form id="filterForm">
-            <label for="categories">Categories:</label>
-            <select id="categories" name="categories" multiple>
-                {% for category in categories %}
-                <option value="{{ category }}">{{ category }}</option>
-                {% endfor %}
-            </select>
+        <form id="filterForm" class="filterForm">
+            <!-- Category Dropdown -->
+            <div class="custom-dropdown">
+                <select id="categories" name="categories">
+                    <option value="" disabled selected>-- Select a Category --</option>
+                    <option value="Portátil">Portátil</option>
+                    <option value="Portáteis">Portáteis</option>
+                    <option value="Computador">Computador</option>
+                    <option value="Computadores">Computadores</option>
+                    <option value="Smartphone">Smartphone</option>
+                    <option value="Telemóvel">Telemóvel</option>
+                    <option value="Wireless">Wireless</option>
+                </select>
+            </div>
 
-            <label for="websites">Websites:</label>
-            <select id="websites" name="websites" multiple>
-                {% for website in websites %}
-                <option value="{{ website }}">{{ website }}</option>
-                {% endfor %}
-            </select>
+            <!-- Website Dropdown -->
+            <div class="custom-dropdown">
+                <select id="websites" name="websites">
+                    <option value="" disabled selected>-- Select a Website --</option>
+                    <option value="fnac">Fnac</option>
+                    <option value="kuantokusta">Kuanto Kusta</option>
+                    <option value="elcorteingles">El Corte Inglés</option>
+                    <option value="worten">Worten</option>
+                    <option value="mediamarkt">Media Markt</option>
+                    <option value="radioPopular">Rádio Popular</option>
+                    <option value="pcdiga">PC Diga</option>
+                </select>
+            </div>
 
-            <button type="button" onclick="detectAnomalies()">Detect Anomalies</button>
+            <!-- Submit Button -->
+            <button type="button" class="btn" onclick="detectAnomalies()">Detect Anomalies</button>
         </form>
 
+        <div id="loading"></div>
         <h2>Results</h2>
         <div id="results"></div>
 
@@ -67,25 +166,42 @@
             const categories = Array.from(document.getElementById("categories").selectedOptions).map(opt => opt.value);
             const websites = Array.from(document.getElementById("websites").selectedOptions).map(opt => opt.value);
 
+            const loadingIndicator = document.getElementById("loading");
+            const resultsDiv = document.getElementById("results");
+
+            // Show loading spinner and clear results
+            loadingIndicator.style.display = "block";
+            resultsDiv.innerHTML = "";
+
             fetch("/priceAnomalies", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ categories, websites })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.anomalies) {
-                    anomaliesData = data.anomalies; // Store anomalies data
-                    populateProductDropdown(data.anomalies); // Populate dropdown with product names
-                    updateChart(); // Render the first product's chart
-                } else {
-                    document.getElementById("results").innerHTML = `<p>${data.message || "No anomalies detected."}</p>`;
-                }
-            })
-            .catch(error => {
-                console.error("Error:", error);
-                document.getElementById("results").innerHTML = `<p>Error fetching anomalies.</p>`;
-            });
+                .then(response => response.json())
+                .then(data => {
+                    loadingIndicator.style.display = "none";
+
+                    if (data.anomalies) {
+                        anomaliesData = data.anomalies; // Store anomalies data
+                        populateProductDropdown(data.anomalies);
+                        updateChart();
+                    } else {
+                        resultsDiv.innerHTML = `<p>${data.message || "No anomalies detected."}</p>`;
+                        clearMessageAfterTimeout();
+                    }
+                })
+                .catch(error => {
+                    loadingIndicator.style.display = "none";
+                    resultsDiv.innerHTML = `<p>Error fetching anomalies. Please try again.</p>`;
+                    clearMessageAfterTimeout();
+                });
+        }
+
+        function clearMessageAfterTimeout() {
+            setTimeout(() => {
+                document.getElementById("results").innerHTML = "";
+            }, 5000); // Clear message after 5 seconds
         }
 
         function populateProductDropdown(anomalies) {
@@ -178,4 +294,5 @@
         }
     </script>
 </body>
+
 </html>

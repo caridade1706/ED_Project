@@ -8,6 +8,45 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
+<style>
+    .container {
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h2 {
+            color: #333;
+            text-align: center;
+        }
+
+        /* Custom Select Styling */
+        select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            appearance: none;
+            background: url('data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns%3D%22http%3A//www.w3.org/2000/svg%22 viewBox%3D%220 0 4 5%22%3E%3Cpath fill%3D%22%23000000%22 d%3D%22M2 0L0 2h4zM0 3l2 2 2-2z%22/%3E%3C/svg%3E') no-repeat right 10px center;
+            background-color: #fff;
+            background-size: 12px;
+        }
+
+        select:hover {
+            border-color: #007bff;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+</style>
+
 <body>
     <!-- Navbar -->
     <div class="navbar">
@@ -21,23 +60,40 @@
                 <li><a href="/">Overview</a></li>
                 <li><a href="/price-analysis">Price Analysis</a></li>
                 <li><a href="/categories">Categories</a></li>
-                <!-- <li><a href="/comparisons">Compare</a></li> -->
+                <li><a href="/productComparisons">Product Compare</a></li>
                 <li><a href="/priceAnomalies">Price Anomalies</a></li>
             </ul>
         </nav>
     </div>
 
-    <!-- Conteúdo Principal -->
-    <div class="container" id="price-analysis">
-        <h1>In Development</h1>
+    <!-- Select Website -->
+    <div class="container">
+        <h2>Mean Price by Websites Across Categories</h2>
+        <select id="websiteSelect" onchange="fetchWebsiteData()">
+            <option value="">-- Select a Website --</option>
+            {% for website in websites %}
+            <option value="{{ website }}">{{ website }}</option>
+            {% endfor %}
+        </select>
+
+        <!-- Canvas for Chart -->
+        <canvas id="priceEvolutionChart" width="800" height="400"></canvas>
     </div>
 
-    <!-- <!-- Conteúdo Principal 
-    <div class="container" id="price-analysis">
-        <div>
-            <canvas id="categoryChart" style="width:100%; height:400px;"></canvas>
-        </div>
-    </div> -->
+    <div class="container">
+        <h2>Mean Price by Category Across Websites</h2>
+        <form id="categoryForm">
+            <select id="categorySelect" name="category" onchange="fetchCategoryMeanPrice()">
+                {% for category in categories %}
+                <option value="{{ category }}">{{ category }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        <canvas id="meanPriceChart" width="800" height="400"></canvas>
+        <div id="meanPriceMessage"></div>
+    </div>
+
 
     <!-- Footer -->
     <footer id="footer">
@@ -48,7 +104,155 @@
     </footer>
 </body>
 
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.js"></script>
-<script src="/static/scripts/categories.js"></script>
+<script>
+    let chartInstance = null;
+
+    function fetchWebsiteData() {
+        const website = document.getElementById("websiteSelect").value;
+
+        if (!website) {
+            alert("Please select a website!");
+            return;
+        }
+
+        // Fetch data from Flask
+        fetch("/websitePriceEvolution", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ website: website })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);
+                } else {
+                    renderChart(data);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Failed to fetch data.");
+            });
+    }
+
+    function renderChart(data) {
+        const ctx = document.getElementById("priceEvolutionChart").getContext("2d");
+
+        // Destroy existing chart if any
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+
+        // Prepare datasets
+        const datasets = data.datasets.map(categoryData => ({
+            label: categoryData.label,
+            data: categoryData.data,
+            borderColor: getRandomColor(),
+            backgroundColor: "transparent",
+            borderWidth: 2,
+            fill: false
+        }));
+
+        // Create a new chart
+        chartInstance = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: data.labels,  // Time labels
+                datasets: datasets    // Category datasets
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Mean Price Evolution for ${document.getElementById("websiteSelect").value}`
+                    }
+                },
+                scales: {
+                    x: { title: { display: true, text: "Time" } },
+                    y: { title: { display: true, text: "Mean Price (€)" } }
+                }
+            }
+        });
+    }
+
+    function getRandomColor() {
+        return `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+    }
+
+    function fetchCategoryMeanPrice() {
+        const category = document.getElementById("categorySelect").value;
+
+        fetch("/categoryMeanPrice", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    document.getElementById("meanPriceMessage").innerHTML = `<p>${data.message}</p>`;
+                    return;
+                }
+
+                renderCategoryMeanPriceChart(data);
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                document.getElementById("meanPriceMessage").innerHTML = `<p>Error fetching mean prices.</p>`;
+            });
+    }
+
+    let meanPriceChart = null;
+
+    function renderCategoryMeanPriceChart(data) {
+        const ctx = document.getElementById("meanPriceChart").getContext("2d");
+
+        // Destroy the existing chart to prevent duplication
+        if (meanPriceChart) {
+            meanPriceChart.destroy();
+        }
+
+        // Prepare datasets for the line chart
+        const datasets = data.datasets.map(websiteData => ({
+            label: websiteData.label,
+            data: websiteData.data,
+            borderColor: getRandomColor(),
+            backgroundColor: "transparent",
+            borderWidth: 2,
+            fill: false
+        }));
+
+        // Create a new line chart
+        meanPriceChart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: data.years,  // Time labels (years)
+                datasets: datasets  // Website datasets
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Yearly Mean Price Evolution for Category: ${data.category}`
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: "Year" },
+                        ticks: { autoSkip: false }
+                    },
+                    y: {
+                        title: { display: true, text: "Mean Price (€)" },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+</script>
 
 </html>

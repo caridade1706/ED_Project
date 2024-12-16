@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracking Evolution of E-Commerce Websites in Portugal</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+
+<style>
+    .container {
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h2 {
+            color: #333;
+            text-align: center;
+        }
+
+        /* Custom Select Styling */
+        select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            appearance: none;
+            background: url('data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns%3D%22http%3A//www.w3.org/2000/svg%22 viewBox%3D%220 0 4 5%22%3E%3Cpath fill%3D%22%23000000%22 d%3D%22M2 0L0 2h4zM0 3l2 2 2-2z%22/%3E%3C/svg%3E') no-repeat right 10px center;
+            background-color: #fff;
+            background-size: 12px;
+        }
+
+        select:hover {
+            border-color: #007bff;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+</style>
+
+<body>
+    <!-- Navbar -->
+    <div class="navbar">
+        <h1>Tracking Evolution of E-Commerce Websites in Portugal</h1>
+    </div>
+
+    <!-- Navigation Banner -->
+    <div class="banner-nav">
+        <nav>
+            <ul class="banner-nav-list">
+                <li><a href="/">Overview</a></li>
+                <li><a href="/price-analysis">Price Analysis</a></li>
+                <li><a href="/categories">Categories</a></li>
+                <li><a href="/productComparisons">Product Compare</a></li>
+                <li><a href="/priceAnomalies">Price Anomalies</a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <div class="container">
+        <h2>Price Evolution of Products Across Websites</h2>
+        <select id="productSelect" onchange="fetchProductPriceEvolution()">
+            <option value="">-- Select a Product --</option>
+            {% for product in products %}
+            <option value="{{ product }}">{{ product }}</option>
+            {% endfor %}
+        </select>
+
+        <div id="loadingProduct" class="loading" style="display: none;">Loading...</div>
+
+        <canvas id="productPriceChart" width="800" height="400"></canvas>
+        <div id="productPriceMessage"></div>
+    </div>
+
+    <!-- Footer -->
+    <footer id="footer">
+        <p>Exploração de Dados</p>
+        <a>Roberto Rolão de Castro - 107133 e</a>
+        <a>Tiago Caridade Gomes - 107133</a>
+        <p>© 2024</p>
+    </footer>
+</body>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.js"></script>
+<script>
+    let productPriceChart = null;
+
+    function fetchProductPriceEvolution() {
+        const productName = document.getElementById("productSelect").value;
+
+        if (!productName) {
+            alert("Please select a product!");
+            return;
+        }
+
+        // Show loading indicator
+        document.getElementById("loadingProduct").style.display = "block";
+
+        fetch("/productPriceEvolution", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ product_name: productName })
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                document.getElementById("loadingProduct").style.display = "none";
+
+                if (data.message) {
+                    document.getElementById("productPriceMessage").innerHTML = `<p>${data.message}</p>`;
+                    return;
+                }
+
+                renderProductPriceChart(data);
+            })
+            .catch(error => {
+                // Hide loading indicator
+                document.getElementById("loadingProduct").style.display = "none";
+
+                console.error("Error:", error);
+                document.getElementById("productPriceMessage").innerHTML = `<p>Error fetching price evolution.</p>`;
+            });
+    }
+
+    function renderProductPriceChart(data) {
+        const ctx = document.getElementById("productPriceChart").getContext("2d");
+
+        // Destroy the existing chart to prevent duplication
+        if (productPriceChart) {
+            productPriceChart.destroy();
+        }
+
+        productPriceChart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: data.labels,  // Time labels (months)
+                datasets: data.datasets.map(websiteData => ({
+                    label: websiteData.label,
+                    data: websiteData.data,
+                    borderColor: getRandomColor(),
+                    borderWidth: 2,
+                    fill: false
+                }))
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Price Evolution for Product: ${data.product_name}`
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: "Time (Months)" },
+                        ticks: { autoSkip: false }
+                    },
+                    y: {
+                        title: { display: true, text: "Price (€)" },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    function getRandomColor() {
+        return `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+    }
+
+</script>
+
+</html>
