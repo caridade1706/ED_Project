@@ -317,7 +317,10 @@ def website_price_evolution():
     # Group data by time (monthly) and category, then calculate the mean price
     mean_price_data = website_data.groupby(
         [website_data['timestamp'].dt.to_period("M"), 'category']
-    )['price'].mean().unstack(fill_value=0)
+    )['price'].mean().unstack()
+
+    # Fill missing values with forward fill or backward fill
+    mean_price_data = mean_price_data.ffill().bfill()
 
     # Convert time period to timestamp for easier use in the frontend
     mean_price_data.index = mean_price_data.index.to_timestamp()
@@ -328,10 +331,11 @@ def website_price_evolution():
         "datasets": [
             {
                 "label": category,
-                "data": mean_price_data[category].tolist()
+                "data": [None if pd.isna(value) else value for value in mean_price_data[category]]
             }
             for category in mean_price_data.columns
-        ]
+        ],
+        "website": selected_website
     }
 
     return jsonify(response_data)
@@ -370,7 +374,10 @@ def category_mean_price():
     filtered_data.loc[:, "month"] = filtered_data["timestamp"].dt.to_period("M")  # Use .loc for assignment
 
     # Group by month and website, then calculate mean price
-    mean_prices = filtered_data.groupby(["month", "website"])["price"].mean().unstack(fill_value=0)
+    mean_prices = filtered_data.groupby(["month", "website"])["price"].mean().unstack()
+
+    # Fill missing values with forward fill or backward fill
+    mean_prices = mean_prices.ffill().bfill()
 
     # Convert the index to timestamp for frontend compatibility
     mean_prices.index = mean_prices.index.to_timestamp()
@@ -381,12 +388,13 @@ def category_mean_price():
         "datasets": [
             {
                 "label": website,
-                "data": mean_prices[website].tolist()
+                "data": [None if pd.isna(value) else value for value in mean_prices[website]]
             }
             for website in mean_prices.columns
         ],
         "category": normalized_category
     }
+
 
     return jsonify(response_data)
 
