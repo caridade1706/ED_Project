@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Anomalies</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <!-- Navbar -->
+    <div class="navbar">
+        <h1>Tracking Evolution of E-Commerce Websites in Portugal</h1>
+    </div>
+
+    <!-- Navigation Banner -->
+    <div class="banner-nav">
+        <nav>
+            <ul class="banner-nav-list">
+                <li><a href="/">Overview</a></li>
+                <li><a href="/price-analysis">Price Analysis</a></li>
+                <li><a href="/categories">Categories</a></li>
+                <li><a href="/priceAnomalies">Price Anomalies</a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <div class="container">
+        <h2>Select Filters</h2>
+        <form id="filterForm">
+            <label for="categories">Categories:</label>
+            <select id="categories" name="categories" multiple>
+                {% for category in categories %}
+                <option value="{{ category }}">{{ category }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="websites">Websites:</label>
+            <select id="websites" name="websites" multiple>
+                {% for website in websites %}
+                <option value="{{ website }}">{{ website }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="button" onclick="detectAnomalies()">Detect Anomalies</button>
+        </form>
+
+        <h2>Results</h2>
+        <div id="results"></div>
+
+        <!-- Dropdown to switch between products -->
+        <label for="productSelect">Select Product:</label>
+        <select id="productSelect" onchange="updateChart()"></select>
+
+        <canvas id="anomalyChart" width="800" height="400"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+    <script>
+        let currentChart = null; // Global variable to store the current Chart.js instance
+        let anomaliesData = []; // Global variable to store anomalies data for switching
+
+        function detectAnomalies() {
+            const categories = Array.from(document.getElementById("categories").selectedOptions).map(opt => opt.value);
+            const websites = Array.from(document.getElementById("websites").selectedOptions).map(opt => opt.value);
+
+            fetch("/priceAnomalies", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ categories, websites })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.anomalies) {
+                    anomaliesData = data.anomalies; // Store anomalies data
+                    populateProductDropdown(data.anomalies); // Populate dropdown with product names
+                    updateChart(); // Render the first product's chart
+                } else {
+                    document.getElementById("results").innerHTML = `<p>${data.message || "No anomalies detected."}</p>`;
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                document.getElementById("results").innerHTML = `<p>Error fetching anomalies.</p>`;
+            });
+        }
+
+        function populateProductDropdown(anomalies) {
+            const productSelect = document.getElementById("productSelect");
+            productSelect.innerHTML = ""; // Clear existing options
+
+            anomalies.forEach((product, index) => {
+                const option = document.createElement("option");
+                option.value = index;
+                option.textContent = product.product_name;
+                productSelect.appendChild(option);
+            });
+        }
+
+        function updateChart() {
+            const productIndex = document.getElementById("productSelect").value;
+            const product = anomaliesData[productIndex];
+
+            if (product) {
+                renderPlot(product);
+            }
+        }
+
+        function renderPlot(product) {
+            const ctx = document.getElementById("anomalyChart").getContext("2d");
+
+            // Destroy the current chart instance if it exists
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            // Sort data by timestamp to ensure proper chronological order
+            const timestamps = product.data.map(d => new Date(d.timestamp));
+            const prices = product.data.map(d => d.price);
+
+            const anomalyTimestamps = product.anomalies.map(a => new Date(a.timestamp));
+            const anomalyPrices = product.anomalies.map(a => a.price);
+
+            // Create a new chart instance
+            currentChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: timestamps,
+                    datasets: [
+                        {
+                            label: `Price for ${product.product_name}`,
+                            data: prices,
+                            borderColor: "blue",
+                            borderWidth: 2,
+                            fill: false,
+                        },
+                        {
+                            label: "Anomalies",
+                            data: timestamps.map((t, i) =>
+                                anomalyTimestamps.includes(t) ? prices[i] : null
+                            ),
+                            borderColor: "red",
+                            borderWidth: 2,
+                            pointStyle: "circle",
+                            radius: 5,
+                            showLine: false, // Only show points for anomalies
+                        },
+                    ],
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: "time",
+                            time: {
+                                unit: "month",
+                                tooltipFormat: "yyyy-MM-dd",
+                            },
+                            title: {
+                                display: true,
+                                text: "Timestamp",
+                            },
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: "Price",
+                            },
+                        },
+                    },
+                    plugins: {
+                        legend: { display: true },
+                    },
+                },
+            });
+        }
+    </script>
+</body>
+</html>
